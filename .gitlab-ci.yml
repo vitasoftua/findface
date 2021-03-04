@@ -1,0 +1,20 @@
+image: docker
+services:
+  - docker:dind
+
+before_script:
+  - docker login registry.gitlab.com -u $GITLAB_USER_LOGIN -p $CI_JOB_TOKEN
+
+stages:
+  - prod
+
+production:
+  stage: prod
+  script:
+    - docker pull $CI_REGISTRY
+    - docker build --cache-from $CI_REGISTRY -f etc/docker/Dockerfile -t $CI_REGISTRY .
+    - docker push $CI_REGISTRY
+  only:
+    - master
+  tags:
+    - runner

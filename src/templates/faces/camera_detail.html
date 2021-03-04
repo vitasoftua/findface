@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block script %}{% endblock %}
+
+{% block content %}
+  <div class="row">
+
+    <div class="col-md-8 p-1">
+      <div class="card mb-3">
+        <div class="card-body p-2">
+          {% if camera %}
+            <img class="img-fluid rounded-top" src="{% url 'stream' camera.id %}" alt="">
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-3 faces">
+        <div class="card-header border-bottom m-1 p-2">
+          <h5 class="font-weight-semi-bold mb-0">{% trans 'Detected faces' %}</h5>
+        </div>
+        <div class="card-body p-2 m-0">
+          <div id="detect" class="container d-flex justify-content-start">
+            <div id="events-detect"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4 p-1">
+      <div class="card matches">
+        <div class="card-header border-bottom m-1 p-2">
+          <h5 class="font-weight-semi-bold mb-0">{% trans 'Matches' %}</h5>
+        </div>
+        <div class="card-body p-2">
+          <div id="events" class="container d-flex flex-column p-0">
+            <div id="events-match"></div>
+            {% for event in events %}
+            <div
+                id="match_{{ event.id }}"
+                class="d-flex justify-content-between p-0 m-0 media align-items-center rounded border-bottom {% if event.is_read %}event-is-read{% endif %}"
+            >
+                <img class="p-0 m-1 img-fluid rounded-top" src="{% if event.img %}{{ event.img.url }}{% endif %}" alt="">
+                <div class="p-1 m-0">
+                  <p class="m-0 text-center">{{ event.datetime|date:"d.m.y" }}</p>
+                  <p class="m-0 text-center">{{ event.datetime|time:"H:i:s" }}</p>
+                  <p class="m-0 text-center">{{ event.detector }}</p>
+                  <p class="m-0 text-center">{{ event.confidence }}%</p>
+                  <p class="m-0 text-center">{{ event.meta }}</p>
+                </div>
+                <img class="p-0 m-1 img-fluid rounded-top" src="{{ event.face_link }}" alt="">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let protocol = 'ws:';
+    if (window.location.protocol === 'https:') {
+      protocol = 'wss:'
+    }
+    let ws = new WebSocket(
+      protocol + '//' + window.location.host + '/ws/faces'
+    );
+    let match = document.getElementById('events-match');
+    let detect = document.getElementById('events-detect');
+
+    ws.onmessage = function (msg) {
+      let data = JSON.parse(msg.data);
+      if (data.type === 'match') {
+        let match_event = document.createElement('div');
+        if (data.is_read === true)
+          match_event.className = 'd-flex justify-content-between p-0 m-0 media align-items-center rounded border-bottom event-is-read';
+        else
+          match_event.className = 'd-flex justify-content-between p-0 m-0 media align-items-center rounded border-bottom';
+        match_event.id = data.id;
+        match_event.innerHTML = data.html;
+        match.parentNode.insertBefore(match_event, match.nextSibling);
+      }
+      else if (data.type === 'detect') {
+        let event = document.createElement('div');
+        event.className = 'card-header p-0 text-center';
+        event.innerHTML = data.html;
+        detect.parentNode.insertBefore(event, detect.nextSibling);
+      }
+      else if (data.type === 'event_is_read') {
+        let elem = document.getElementById(data.id);
+        console.log(elem);
+        if (elem) {
+          elem.className = elem.className + ' event-is-read';
+        }
+      }
+    };
+
+  </script>
+
+{% endblock %}

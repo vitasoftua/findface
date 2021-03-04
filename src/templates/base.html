@@ -1,0 +1,119 @@
+{% load static i18n bootstrap4 faces_tags %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {% block title %}Genesis{% endblock %}
+  </title>
+  <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600,700" rel="stylesheet">
+  <link rel="shortcut icon" type="image/png" href="{% static 'img/logo_genesis.png' %}"/>
+  <link rel="stylesheet" type="text/css" href="{% static 'styles/main.css' %}"/>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.css"/>
+  {% bootstrap_javascript jquery='full' %}
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js"/>
+  <script type="text/javascript">{% block script %}{% endblock %}</script>
+
+</head>
+<body class="has-sidebar">
+
+  <main class="main">
+    <aside id="sidebar" class="js-custom-scroll side-nav">
+      <ul class="side-nav-menu">
+        <li class="side-nav-menu-item">
+          <a class="nav-link" href="{% url 'index' %}">
+            <img src="{% static 'img/logo_genesis_white.png' %}" alt="" class="align-self-start mr-3" width="120px" height="120px">
+          </a>
+        </li>
+        {% if user.is_authenticated %}
+          <li class="side-nav-menu-item">
+            <a class="side-nav-menu-link" href="{% url 'index' %}">{% trans 'Monitoring' %}</a>
+            <ul class="side-nav-menu side-nav-menu-second-level">
+              {% camera_list as camera_list %}
+              <li class="side-nav-menu">
+                {% for camera in camera_list %}
+                  <a class="side-nav-menu-link" href="{% url 'camera' camera.id %}">{{ camera.detector }}</a>
+                {% endfor %}
+              </li>
+            </ul>
+          </li>
+          <li class="side-nav-menu">
+            <a class="side-nav-menu-link" href="{% url 'logout' %}">{% trans 'Logout' %}</a>
+          </li>
+          <div class="custom-control custom-switch">
+            {% csrf_token %}
+            <input
+                type="checkbox"
+                class="custom-control-input"
+                id="switch"
+                name="checkbox"
+                onchange="sendUserData('{% url 'user_data' %}')"
+                {% if request.user.is_take_web_notification %}checked{% endif %}
+            />
+            <label class="custom-control-label" for="switch">
+              {% trans 'Web notifications' %}
+            </label>
+          </div>
+        {% endif %}
+      </ul>
+    </aside>
+
+    <div class="content">
+      <div class="py-3 px-3 px-md-4">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </main>
+
+  {% if request.user.is_authenticated %}
+  <script>
+    function sendUserData (url) {
+      let csrftoken = jQuery("[name=csrfmiddlewaretoken]").val();
+      let xhr = new XMLHttpRequest();
+      xhr.open("POST", url, true);
+      xhr.setRequestHeader("X-CSRFToken", csrftoken);
+      xhr.send({});
+      location.reload();
+    }
+  </script>
+  {% endif %}
+
+  {% if request.user.is_authenticated and request.user.is_take_web_notification %}
+  <script>
+    let current_protocol = 'ws:';
+    if (window.location.protocol === 'https:') {
+      current_protocol = 'wss:'
+    }
+    let ws_notification = new WebSocket(
+      current_protocol + '//' + window.location.host + '/ws/notifications'
+    );
+
+    ws_notification.onmessage = function (msg) {
+      toastr.options = {
+        "closeButton": true,
+        "debug": false,
+        "newestOnTop": true,
+        "progressBar": false,
+        "positionClass": "toast-top-right",
+        "preventDuplicates": false,
+        "onclick": null,
+        "showDuration": "300",
+        "hideDuration": " ",
+        "timeOut": "",
+        "extendedTimeOut": "",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+      };
+      let data = JSON.parse(msg.data);
+      let text = '<img src="' + data.img +
+        '" alt="" width="60" height="60"/><span>&nbspНайдено: ' + data.meta + '</span>';
+      toastr["info"](text, data.datetime);
+    };
+
+  </script>
+  {% endif %}
+</body>
+</html>

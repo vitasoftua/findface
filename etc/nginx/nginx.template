@@ -1,0 +1,176 @@
+upstream django-stream {
+    server ${STREAM_HOST}:${STREAM_PORT};
+}
+
+upstream ws {
+    server ${WS_HOST}:${WS_PORT};
+}
+
+server {
+    listen 80;
+    server_name 167.99.132.178;
+    client_max_body_size 250k;
+    client_body_buffer_size 250k;
+
+    gzip on;
+    gzip_disable "msie6";
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_static on;
+    gzip_types text/plain text/css application/json application/x-javascript application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass ${WEB_HOST}:8000;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location ^~ /stream {
+        proxy_pass http://django-stream$request_uri;
+        proxy_read_timeout 10800;
+        proxy_redirect off;
+        proxy_buffering off;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location /ws {
+        proxy_pass http://ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /static/ {
+        alias /code/public/;
+        access_log off;
+        # expires 7d;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location /media/ {
+        alias /code/media/;
+        access_log off;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+}
+
+server {
+    listen 80;
+    server_name ${SERVER_NAME};
+    return 301 https://${SERVER_NAME}$request_uri;
+}
+
+
+server {
+    server_name ${SERVER_NAME};
+    listen ${NGINX_PORT} ssl;
+
+    ssl_certificate /etc/letsencrypt/live/genesis.oldmin.team/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/genesis.oldmin.team/privkey.pem;
+
+    client_max_body_size 250k;
+    client_body_buffer_size 250k;
+
+    gzip on;
+    gzip_disable "msie6";
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_static on;
+    gzip_types text/plain text/css application/json application/x-javascript application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass ${WEB_HOST}:8000;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location ^~ /stream {
+        proxy_pass http://django-stream$request_uri;
+        proxy_read_timeout 10800;
+        proxy_redirect off;
+        proxy_buffering off;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location /ws {
+        proxy_pass http://ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /static/ {
+        alias /code/public/;
+        access_log off;
+        # expires 7d;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location /media/ {
+        alias /code/media/;
+        access_log off;
+
+        # kill cache
+        add_header Last-Modified $date_gmt;
+        add_header Cache-Control 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+        if_modified_since off;
+        expires off;
+        etag off;
+    }
+
+    location /.well-known/acme-challenge/ {
+        root /letsencrypt/data;
+    }
+
+    location /uploads/ {
+        proxy_pass http://195.123.10.27:3333$request_uri;
+    }
+}

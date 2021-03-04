@@ -1,0 +1,78 @@
+version: '3'
+
+services:
+
+  db:
+    restart: unless-stopped
+    image: postgres:11-alpine
+    env_file:
+      - ./etc/docker/postgres.env
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - ./.docker_data/postgresql:/var/lib/postgresql/data/pgdata
+    ports:
+      - "5555:5432"
+
+  web:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./etc/docker/Dockerfile
+    command: /bin/bash -c "python3 src/manage.py migrate && python3 src/manage.py runserver 0.0.0.0:8080"
+    env_file:
+      - ./etc/docker/postgres.env
+      - ./etc/docker/web.env
+    environment:
+      - DEBUG=True
+    volumes:
+      - .:/code
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - redis
+
+  rabbit:
+    hostname: rabbit
+    image: rabbitmq:3-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+  worker:
+    build:
+      context: .
+      dockerfile: etc/docker/Dockerfile
+    env_file:
+      - ./etc/docker/postgres.env
+      - ./etc/docker/web.env
+    environment:
+      - DEBUG=True
+    volumes:
+      - .:/code
+    command: /bin/bash -c "cd src && celery -A core worker -l debug"
+    depends_on:
+      - rabbit
+      - db
+
+  beat:
+    build:
+      context: .
+      dockerfile: etc/docker/Dockerfile
+    env_file:
+      - ./etc/docker/postgres.env
+      - ./etc/docker/web.env
+    environment:
+      - DEBUG=True
+    command: /bin/bash -c "cd src && celery -A core beat -l debug"
+    depends_on:
+      - rabbit
+      - db
+
+  redis:
+    restart: unless-stopped
+    image: redis:5-alpine
+    volumes:
+      - ./.docker_data/redis:/data
+
